@@ -450,56 +450,97 @@ export default function AdminPanelPage() {
                 <CardTitle className="text-base font-semibold">User Directory</CardTitle>
                 <CardDescription>Roster of all registered trip organizers.</CardDescription>
               </CardHeader>
-              <CardContent className="overflow-x-auto">
+              <CardContent>
                 {isLoadingUsers ? (
                   <div className="py-10 text-center flex justify-center items-center">
                     <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
                   </div>
                 ) : (
-                  <table className="w-full min-w-[500px] text-sm text-left">
-                    <thead>
-                      <tr className="border-b border-neutral-200 dark:border-neutral-800 text-neutral-400 text-xs uppercase font-bold">
-                        <th className="pb-3 pt-1 pl-2">Name</th>
-                        <th className="pb-3 pt-1">Username</th>
-                        <th className="pb-3 pt-1">Email</th>
-                        <th className="pb-3 pt-1">Privileges</th>
-                        <th className="pb-3 pt-1 pr-2 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                      {users.map((u) => (
-                        <tr key={u.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 group">
-                          <td className="py-3 pl-2 font-medium text-neutral-800 dark:text-neutral-200">
-                            {u.full_name}
-                          </td>
-                          <td className="py-3 text-neutral-600 dark:text-neutral-400">@{u.username}</td>
-                          <td className="py-3 text-neutral-500 dark:text-neutral-400">{u.email || "N/A"}</td>
-                          <td className="py-3">
-                            {u.is_admin ? (
-                              <span className="text-[10px] bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400 border border-red-200 dark:border-red-900/50 px-2 py-0.5 rounded-full font-bold">
-                                Admin
-                              </span>
-                            ) : (
-                              <span className="text-[10px] bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-800 px-2 py-0.5 rounded-full font-medium">
-                                Planner
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 pr-2 text-right">
-                            {u.username !== "souvik" && (
-                              <button
-                                onClick={() => handleDeleteUser(u.id, u.username || "")}
-                                className="p-1.5 text-neutral-400 hover:text-red-500 dark:hover:text-red-400 rounded transition-apple cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                title="Delete User"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            )}
-                          </td>
+                  <>
+                    {/* Desktop table view */}
+                    <table className="hidden sm:table w-full text-sm text-left">
+                      <thead>
+                        <tr className="border-b border-neutral-200 dark:border-neutral-800 text-neutral-400 text-xs uppercase font-bold">
+                          <th className="pb-3 pt-1 pl-2">Name</th>
+                          <th className="pb-3 pt-1">Username</th>
+                          <th className="pb-3 pt-1">Email</th>
+                          <th className="pb-3 pt-1">Privileges</th>
+                          <th className="pb-3 pt-1 pr-2 text-right">Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                        {users.map((u) => (
+                          <tr key={u.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 group">
+                            <td className="py-3 pl-2 font-medium text-neutral-800 dark:text-neutral-200">
+                              {u.full_name}
+                            </td>
+                            <td className="py-3 text-neutral-600 dark:text-neutral-400">@{u.username}</td>
+                            <td className="py-3 text-neutral-500 dark:text-neutral-400">{u.email || "N/A"}</td>
+                            <td className="py-3">
+                              {u.is_admin ? (
+                                <span className="text-[10px] bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400 border border-red-200 dark:border-red-900/50 px-2 py-0.5 rounded-full font-bold">
+                                  Admin
+                                </span>
+                              ) : (
+                                <span className="text-[10px] bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-800 px-2 py-0.5 rounded-full font-medium">
+                                  Planner
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 pr-2 text-right">
+                              {u.username !== "souvik" && (
+                                <button
+                                  onClick={() => handleDeleteUser(u.id, u.username || "")}
+                                  className="p-1.5 text-neutral-400 hover:text-red-500 dark:hover:text-red-400 rounded transition-apple cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                  title="Delete User"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    {/* Mobile list view */}
+                    <div className="block sm:hidden space-y-3.5">
+                      {users.length === 0 ? (
+                        <p className="text-xs text-neutral-400 text-center py-4">No users found.</p>
+                      ) : (
+                        users.map((u) => (
+                          <div
+                            key={u.id}
+                            className="p-3.5 rounded-xl border border-neutral-150 dark:border-neutral-850 hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 transition-apple space-y-2 relative"
+                          >
+                            <div className="flex justify-between items-start gap-2">
+                              <div>
+                                <p className="font-semibold text-neutral-800 dark:text-neutral-200 text-sm">{u.full_name}</p>
+                                <p className="text-xs text-neutral-400">@{u.username}</p>
+                              </div>
+                              {u.username !== "souvik" && (
+                                <button
+                                  onClick={() => handleDeleteUser(u.id, u.username || "")}
+                                  className="p-1 text-neutral-400 hover:text-red-500 rounded cursor-pointer"
+                                  title="Delete User"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex items-center justify-between text-xs pt-1 border-t border-neutral-100 dark:border-neutral-800/40">
+                              <span className="text-neutral-450 dark:text-neutral-400 truncate max-w-[150px]">{u.email || "No Email"}</span>
+                              {u.is_admin ? (
+                                <span className="text-[9px] bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400 border border-red-200 px-2 py-0.5 rounded font-bold">Admin</span>
+                              ) : (
+                                <span className="text-[9px] bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 border border-neutral-200 px-2 py-0.5 rounded font-medium">Planner</span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
