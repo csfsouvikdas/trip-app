@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useDashboard } from "@/components/providers";
 import { createClient } from "@/lib/supabase/client";
-import { Map, CreditCard, ListTodo, Utensils, LogOut, Compass, Menu, Shield, Sun, Moon, Calendar } from "lucide-react";
+import { Map, CreditCard, ListTodo, Utensils, LogOut, Menu, Shield, Sun, Moon, Calendar, BarChart3, Image } from "lucide-react";
 import { cn } from "@/components/ui/button";
 
 const navItems = [
@@ -14,6 +14,8 @@ const navItems = [
   { href: "/dashboard/checklist", label: "Checklist", icon: ListTodo },
   { href: "/dashboard/menu-planner", label: "Menu Planner", icon: Utensils },
   { href: "/dashboard/itinerary", label: "Itinerary", icon: Calendar },
+  { href: "/dashboard/polls", label: "Group Polls", icon: BarChart3 },
+  { href: "/dashboard/gallery", label: "Gang Gallery", icon: Image },
 ];
 
 export function Sidebar() {
@@ -54,11 +56,11 @@ export function Sidebar() {
       >
         {/* Brand / Logo */}
         <div className="flex items-center gap-2.5 px-6 h-16 border-b border-neutral-100 dark:border-neutral-800">
-          <div className="h-8 w-8 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 flex items-center justify-center shadow-sm">
-            <Compass className="h-4 w-4" />
+          <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden">
+            <img src="/favicon.ico" className="h-full w-full scale-125 object-contain" alt="Monkey Gang Logo" />
           </div>
           <span className="font-bold tracking-tight text-neutral-900 dark:text-neutral-50">
-            Successful Trip ?
+            Monkey Gang 🐒
           </span>
         </div>
 
@@ -104,11 +106,14 @@ export function Sidebar() {
         {/* User Profile / Logout Section */}
         <div className="p-4 border-t border-neutral-100 dark:border-neutral-800">
           <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg">
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="h-8 w-8 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center text-sm font-semibold shrink-0 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
-                {profile?.full_name ? profile.full_name[0].toUpperCase() : "U"}
+            <Link
+              href="/dashboard/profile"
+              className="flex items-center gap-2.5 overflow-hidden hover:bg-neutral-50 dark:hover:bg-neutral-800/40 p-1.5 rounded-lg transition-apple cursor-pointer flex-1"
+            >
+              <div className="h-8 w-8 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center text-lg shrink-0 border border-neutral-200 dark:border-neutral-700">
+                {profile?.avatar_url || (profile?.full_name ? profile.full_name[0].toUpperCase() : "U")}
               </div>
-              <div className="overflow-hidden">
+              <div className="overflow-hidden text-left">
                 <p className="text-xs font-semibold truncate text-neutral-800 dark:text-neutral-200">
                   {profile?.full_name || "User"}
                 </p>
@@ -116,7 +121,7 @@ export function Sidebar() {
                   Explorer
                 </p>
               </div>
-            </div>
+            </Link>
             <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={toggleTheme}

@@ -6,12 +6,21 @@ import { LiveBudget } from "@/components/live-budget";
 import { useDashboard } from "@/components/providers";
 import { Loader2 } from "lucide-react";
 
+import { useRouter } from "next/navigation";
+
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isLoadingTrips } = useDashboard();
+  const { user, profile } = useDashboard();
+  const router = useRouter();
+
+  React.useEffect(() => {
+    if (user && profile && profile.onboarded === false) {
+      router.replace("/onboarding");
+    }
+  }, [user, profile, router]);
 
   // If user state is not loaded yet, render a premium loading screen
   if (!user) {

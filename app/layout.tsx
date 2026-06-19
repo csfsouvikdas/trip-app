@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Successful Trip — Trip Management Dashboard",
-  description: "High-performance, elegant trip manager with real-time budget, checklist, and menu planner.",
+  title: "Monkey Gang — Trip Management Dashboard",
+  description: "High-performance, elegant group trip manager with real-time budget, checklist, and menu planner.",
 };
 
 export default function RootLayout({

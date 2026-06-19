@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 import { ListTodo, Plus, Trash2, Calendar, CheckSquare, ArrowRight, ClipboardList, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 
@@ -17,6 +18,7 @@ interface ChecklistItem {
   task: string;
   is_completed: boolean;
   day: string; // date string
+  assigned_to?: string | null;
   created_at: string;
 }
 
@@ -57,7 +59,7 @@ const PACKING_TEMPLATES = [
 ];
 
 export default function ChecklistPage() {
-  const { activeTrip } = useDashboard();
+  const { activeTrip, profile } = useDashboard();
   const supabase = createClient();
   const queryClient = useQueryClient();
 
@@ -66,6 +68,22 @@ export default function ChecklistPage() {
   const [inlineTaskText, setInlineTaskText] = React.useState<Record<string, string>>({}); // { [date]: "text" }
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isApplyingTemplate, setIsApplyingTemplate] = React.useState<string | null>(null);
+
+  const [assignedTo, setAssignedTo] = React.useState<string>("common");
+  const [inlineAssignedTo, setInlineAssignedTo] = React.useState<Record<string, string>>({});
+
+  // Fetch profiles for task assignment
+  const { data: travelers = [] } = useQuery<any[]>({
+    queryKey: ["checklist_travelers"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, username")
+        .order("full_name", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const handleApplyTemplate = async (templateName: string, templateItems: string[]) => {
     if (!activeTrip) return;
@@ -77,6 +95,7 @@ export default function ChecklistPage() {
         task: item,
         day: newDate,
         is_completed: false,
+        assigned_to: null,
       }));
 
       const { error } = await supabase.from("checklist_items").insert(inserts);
@@ -108,17 +127,23 @@ export default function ChecklistPage() {
     enabled: !!activeTrip?.id,
   });
 
+  const displayedItems = React.useMemo(() => {
+    if (!items) return [];
+    if (profile?.is_admin) return items;
+    return items.filter((item) => !item.assigned_to || item.assigned_to === profile?.id);
+  }, [items, profile]);
+
   // Group items by day
   const groupedItems = React.useMemo(() => {
     const groups: Record<string, ChecklistItem[]> = {};
-    items.forEach((item) => {
+    displayedItems.forEach((item) => {
       if (!groups[item.day]) {
         groups[item.day] = [];
       }
       groups[item.day].push(item);
     });
     return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [items]);
+  }, [displayedItems]);
 
   const handleToggle = async (id: string, currentStatus: boolean) => {
     try {
@@ -135,16 +160,20 @@ export default function ChecklistPage() {
     }
   };
 
-  const handleAddTask = async (taskText: string, dateString: string, isInline = false) => {
+  const handleAddTask = async (taskText: string, dateString: string, isInline = false, inlineAssign?: string) => {
     if (!activeTrip || !taskText.trim()) return;
     setIsSubmitting(true);
 
     try {
+      const taskAssignee = inlineAssign !== undefined ? inlineAssign : assignedTo;
+      const assignedVal = taskAssignee === "common" || !taskAssignee ? null : taskAssignee;
+
       const { error } = await supabase.from("checklist_items").insert({
         trip_id: activeTrip.id,
         task: taskText.trim(),
         day: dateString,
         is_completed: false,
+        assigned_to: assignedVal,
       });
 
       if (error) throw error;
@@ -153,8 +182,10 @@ export default function ChecklistPage() {
 
       if (isInline) {
         setInlineTaskText((prev) => ({ ...prev, [dateString]: "" }));
+        setInlineAssignedTo((prev) => ({ ...prev, [dateString]: "common" }));
       } else {
         setNewTaskText("");
+        setAssignedTo("common");
       }
     } catch (err: any) {
       alert(err.message || "Failed to add task");
@@ -164,6 +195,10 @@ export default function ChecklistPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!profile?.is_admin) {
+      alert("Only administrators are permitted to delete checklist items.");
+      return;
+    }
     try {
       const { error } = await supabase.from("checklist_items").delete().eq("id", id);
       if (error) throw error;
@@ -213,79 +248,95 @@ export default function ChecklistPage() {
         </div>
 
         {/* Global Task Add Bar */}
-        <div className="flex flex-wrap items-center gap-2 max-w-lg bg-white dark:bg-neutral-900 p-2 border border-neutral-100 dark:border-neutral-800 rounded-xl shadow-sm w-full md:w-auto">
-          <Input
-            placeholder="New quick task..."
-            className="flex-1 min-w-[150px] border-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-2 h-9"
-            value={newTaskText}
-            onChange={(e) => setNewTaskText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleAddTask(newTaskText, newDate);
-            }}
-          />
-          <Input
-            type="date"
-            className="w-auto border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-xs px-2 h-9 bg-transparent shrink-0"
-            value={newDate}
-            onChange={(e) => setNewDate(e.target.value)}
-          />
-          <Button
-            size="sm"
-            onClick={() => handleAddTask(newTaskText, newDate)}
-            disabled={isSubmitting || !newTaskText.trim()}
-            className="cursor-pointer text-xs shrink-0"
-            variant="default"
-          >
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            Add
-          </Button>
-        </div>
+        {profile?.is_admin && (
+          <div className="flex flex-wrap items-center gap-2 max-w-2xl bg-white dark:bg-neutral-900 p-2 border border-neutral-100 dark:border-neutral-800 rounded-xl shadow-sm w-full md:w-auto">
+            <Input
+              placeholder="New quick task..."
+              className="flex-1 min-w-[150px] border-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-2 h-9 bg-transparent"
+              value={newTaskText}
+              onChange={(e) => setNewTaskText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAddTask(newTaskText, newDate);
+              }}
+            />
+            <Input
+              type="date"
+              className="w-auto border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-xs px-2 h-9 bg-transparent shrink-0"
+              value={newDate}
+              onChange={(e) => setNewDate(e.target.value)}
+            />
+            <Select
+              value={assignedTo}
+              onChange={(e) => setAssignedTo(e.target.value)}
+              className="w-auto border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-xs px-2 h-9 bg-transparent shrink-0"
+            >
+              <option value="common">Common (All)</option>
+              {travelers.map((t) => (
+                <option key={t.id} value={t.id}>
+                  Assign to: {t.full_name}
+                </option>
+              ))}
+            </Select>
+            <Button
+              size="sm"
+              onClick={() => handleAddTask(newTaskText, newDate)}
+              disabled={isSubmitting || !newTaskText.trim()}
+              className="cursor-pointer text-xs shrink-0 font-semibold"
+              variant="default"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Add
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Main Grid: Templates Left, Checklist Right */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         
         {/* Left Column: Templates panel */}
-        <div className="lg:col-span-1">
-          <Card className="border border-neutral-100 dark:border-neutral-800 sticky top-24">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-1.5">
-                <Sparkles className="h-4.5 w-4.5 text-amber-500" />
-                Quick Templates
-              </CardTitle>
-              <CardDescription>
-                Apply predefined lists to the active date: <span className="font-bold text-neutral-800 dark:text-neutral-200">{formatDate(newDate)}</span>.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {PACKING_TEMPLATES.map((tmpl) => (
-                <div
-                  key={tmpl.name}
-                  className="p-3 rounded-xl border border-neutral-100 dark:border-neutral-850 hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 transition-apple"
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold text-neutral-850 dark:text-neutral-200">{tmpl.icon} {tmpl.name}</span>
-                  </div>
-                  <p className="text-[10px] text-neutral-400 mb-2 truncate leading-relaxed">
-                    {tmpl.items.slice(0, 3).join(", ")}...
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full text-[10px] h-7 cursor-pointer"
-                    onClick={() => handleApplyTemplate(tmpl.name, tmpl.items)}
-                    disabled={isApplyingTemplate !== null}
+        {profile?.is_admin && (
+          <div className="lg:col-span-1">
+            <Card className="border border-neutral-100 dark:border-neutral-800 sticky top-24">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-1.5">
+                  <Sparkles className="h-4.5 w-4.5 text-amber-500" />
+                  Quick Templates
+                </CardTitle>
+                <CardDescription>
+                  Apply predefined lists to the active date: <span className="font-bold text-neutral-800 dark:text-neutral-200">{formatDate(newDate)}</span>.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {PACKING_TEMPLATES.map((tmpl) => (
+                  <div
+                    key={tmpl.name}
+                    className="p-3 rounded-xl border border-neutral-100 dark:border-neutral-850 hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 transition-apple"
                   >
-                    {isApplyingTemplate === tmpl.name ? "Applying..." : "Apply Template"}
-                  </Button>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-neutral-850 dark:text-neutral-200">{tmpl.icon} {tmpl.name}</span>
+                    </div>
+                    <p className="text-[10px] text-neutral-400 mb-2 truncate leading-relaxed">
+                      {tmpl.items.slice(0, 3).join(", ")}...
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full text-[10px] h-7 cursor-pointer"
+                      onClick={() => handleApplyTemplate(tmpl.name, tmpl.items)}
+                      disabled={isApplyingTemplate !== null}
+                    >
+                      {isApplyingTemplate === tmpl.name ? "Applying..." : "Apply Template"}
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Right Column: Checklist list */}
-        <div className="lg:col-span-3">
+        <div className={profile?.is_admin ? "lg:col-span-3" : "lg:col-span-4"}>
           {isLoading ? (
             <div className="flex justify-center items-center py-20">
               <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
@@ -297,7 +348,9 @@ export default function ChecklistPage() {
               </div>
               <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">No Tasks Logged</h3>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 max-w-[280px]">
-                Input daily goals or packing checks using the add bar at the top or apply a template on the left.
+                {profile?.is_admin
+                  ? "Input daily goals or packing checks using the add bar at the top or apply a template on the left."
+                  : "No checklist items have been assigned to you or made common yet."}
               </p>
             </div>
           ) : (
@@ -347,15 +400,22 @@ export default function ChecklistPage() {
                                   }`}
                                 >
                                   {item.task}
+                                  {item.assigned_to && (
+                                    <span className="ml-2 text-[10px] bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 px-1.5 py-0.5 rounded-full font-bold">
+                                      @{travelers.find((t) => t.id === item.assigned_to)?.username || "Member"}
+                                    </span>
+                                  )}
                                 </label>
                               </div>
-                              <button
-                                onClick={() => handleDelete(item.id)}
-                                className="p-1 text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded cursor-pointer opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-apple"
-                                title="Delete task"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
+                              {profile?.is_admin && (
+                                <button
+                                  onClick={() => handleDelete(item.id)}
+                                  className="p-1 text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded cursor-pointer opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-apple"
+                                  title="Delete task"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -363,34 +423,50 @@ export default function ChecklistPage() {
                     </div>
 
                     {/* Inline Card Footer: Add Task directly to this day */}
-                    <CardFooter className="pt-4 border-t border-neutral-100 dark:border-neutral-800/50">
-                      <div className="flex items-center gap-2 w-full">
-                        <Input
-                          placeholder="Add task to this day..."
-                          className="h-8 text-xs flex-1 bg-neutral-50/50 dark:bg-neutral-950/20 focus-visible:ring-neutral-200"
-                          value={inlineTaskText[dateString] || ""}
-                          onChange={(e) =>
-                            setInlineTaskText((prev) => ({ ...prev, [dateString]: e.target.value }))
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              handleAddTask(inlineTaskText[dateString] || "", dateString, true);
+                    {profile?.is_admin && (
+                      <CardFooter className="pt-4 border-t border-neutral-100 dark:border-neutral-800/50 flex flex-col gap-2">
+                        <div className="flex items-center gap-2 w-full">
+                          <Input
+                            placeholder="Add task to this day..."
+                            className="h-8 text-xs flex-1 bg-neutral-50/50 dark:bg-neutral-950/20 focus-visible:ring-neutral-200"
+                            value={inlineTaskText[dateString] || ""}
+                            onChange={(e) =>
+                              setInlineTaskText((prev) => ({ ...prev, [dateString]: e.target.value }))
                             }
-                          }}
-                        />
-                        <Button
-                          size="sm"
-                          className="h-8 px-3 cursor-pointer text-xs"
-                          variant="secondary"
-                          onClick={() =>
-                            handleAddTask(inlineTaskText[dateString] || "", dateString, true)
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleAddTask(inlineTaskText[dateString] || "", dateString, true, inlineAssignedTo[dateString]);
+                              }
+                            }}
+                          />
+                          <Button
+                            size="sm"
+                            className="h-8 px-3 cursor-pointer text-xs"
+                            variant="secondary"
+                            onClick={() =>
+                              handleAddTask(inlineTaskText[dateString] || "", dateString, true, inlineAssignedTo[dateString])
+                            }
+                            disabled={isSubmitting || !(inlineTaskText[dateString] || "").trim()}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                        <Select
+                          value={inlineAssignedTo[dateString] || "common"}
+                          onChange={(e) =>
+                            setInlineAssignedTo((prev) => ({ ...prev, [dateString]: e.target.value }))
                           }
-                          disabled={isSubmitting || !(inlineTaskText[dateString] || "").trim()}
+                          className="h-7 text-[10px] w-full"
                         >
-                          Add
-                        </Button>
-                      </div>
-                    </CardFooter>
+                          <option value="common">Common (All)</option>
+                          {travelers.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              Assign to: {t.full_name}
+                            </option>
+                          ))}
+                        </Select>
+                      </CardFooter>
+                    )}
                   </Card>
                 );
               })}

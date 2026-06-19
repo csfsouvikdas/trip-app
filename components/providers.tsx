@@ -13,13 +13,18 @@ export interface Profile {
   email?: string;
   is_admin?: boolean;
   avatar_url?: string | null;
+  password?: string;
+  onboarded?: boolean;
 }
 
 export interface Trip {
   id: string;
   user_id: string;
   name: string;
+  location?: string;
   total_budget: number;
+  google_refresh_token?: string | null;
+  google_folder_id?: string | null;
   created_at: string;
 }
 
@@ -109,7 +114,11 @@ function DashboardProviderInner({ children }: { children: React.ReactNode }) {
     document.cookie = `trip_user=${newProfile.username}; path=/; max-age=31536000`;
     setUser(newProfile);
     queryClient.clear();
-    router.push("/dashboard");
+    if (newProfile.onboarded) {
+      router.push("/dashboard");
+    } else {
+      router.push("/onboarding");
+    }
   };
 
   const logout = () => {
@@ -124,14 +133,48 @@ function DashboardProviderInner({ children }: { children: React.ReactNode }) {
 
   // Get current session / user from localStorage
   React.useEffect(() => {
-    const checkSession = () => {
+    let active = true;
+    const checkSession = async () => {
       const savedUser = localStorage.getItem("trip_user");
       if (savedUser) {
-        setUser(JSON.parse(savedUser));
+        const parsed = JSON.parse(savedUser);
+        if (!active) return;
+        setUser(parsed);
+        const path = window.location.pathname;
+        if (!parsed.onboarded && path !== "/onboarding") {
+          router.push("/onboarding");
+        } else if (parsed.onboarded && path === "/onboarding") {
+          router.push("/dashboard");
+        }
+
+        // Validate session against database to ensure user UUID exists
+        try {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("id, full_name, username, is_admin, password, onboarded, avatar_url")
+            .eq("id", parsed.id)
+            .maybeSingle();
+
+          if (error || !data) {
+            console.warn("Session invalid or database reset. Logging out.");
+            logout();
+          } else if (active) {
+            // Update session if DB attributes changed
+            if (JSON.stringify(data) !== JSON.stringify(parsed)) {
+              localStorage.setItem("trip_user", JSON.stringify(data));
+              setUser(data);
+            }
+          }
+        } catch (err) {
+          console.error("Session validation failed:", err);
+        }
       } else {
         setUser(null);
         queryClient.clear();
-        router.push("/login");
+        const path = window.location.pathname;
+        if (path !== "/login" && path !== "/") {
+          router.push("/login");
+        }
       }
     };
 
@@ -139,7 +182,10 @@ function DashboardProviderInner({ children }: { children: React.ReactNode }) {
 
     // Check localStorage periodically or on storage events
     window.addEventListener("storage", checkSession);
-    return () => window.removeEventListener("storage", checkSession);
+    return () => {
+      active = false;
+      window.removeEventListener("storage", checkSession);
+    };
   }, [queryClient, router]);
 
   // Profile is just the user session object itself

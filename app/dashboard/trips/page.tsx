@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Check, MapPin, Wallet, Calendar, Trash2, Loader2, Compass } from "lucide-react";
+import { WeatherWidget } from "@/components/weather-widget";
 
 export default function TripsPage() {
   const { trips, activeTrip, setActiveTrip, user, isLoadingTrips, profile } = useDashboard();
@@ -18,6 +19,7 @@ export default function TripsPage() {
 
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
   const [tripName, setTripName] = React.useState("");
+  const [tripLocation, setTripLocation] = React.useState("");
   const [totalBudget, setTotalBudget] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
@@ -47,6 +49,7 @@ export default function TripsPage() {
         .from("trips")
         .insert({
           name: tripName,
+          location: tripLocation.trim() || "Delhi",
           total_budget: budgetNum,
           user_id: user.id,
         })
@@ -65,6 +68,7 @@ export default function TripsPage() {
 
       // Reset state and close modal
       setTripName("");
+      setTripLocation("");
       setTotalBudget("");
       setIsCreateOpen(false);
     } catch (err: any) {
@@ -102,7 +106,37 @@ export default function TripsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Active Trip Info & Weather Header */}
+      {activeTrip && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="md:col-span-2 p-6 bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-2xl flex flex-col justify-between space-y-4 shadow-sm">
+            <div className="space-y-2">
+              <span className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold">
+                Active Workspace
+              </span>
+              <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-50 tracking-tight mt-2 flex items-center gap-1.5">
+                <MapPin className="h-5 w-5 text-neutral-400" />
+                {activeTrip.name}
+              </h2>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                Destination: <span className="font-semibold text-neutral-700 dark:text-neutral-300">{activeTrip.location || "Delhi"}</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-sm border-t border-neutral-100 dark:border-neutral-800/60 pt-3">
+              <Wallet className="h-4.5 w-4.5 text-neutral-400" />
+              <span className="font-semibold text-neutral-500 dark:text-neutral-400">Trip Budget:</span>
+              <span className="font-bold text-neutral-800 dark:text-neutral-200">
+                {formatCurrency(activeTrip.total_budget)}
+              </span>
+            </div>
+          </div>
+          <div className="md:col-span-1">
+            <WeatherWidget location={activeTrip.location || "Delhi"} />
+          </div>
+        </div>
+      )}
+
       {/* Header Summary */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -147,6 +181,17 @@ export default function TripsPage() {
                       placeholder="e.g. Kyoto Summer 2026, Paris Weekend"
                       value={tripName}
                       onChange={(e) => setTripName(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="tripLocation">Destination City / Location</Label>
+                    <Input
+                      id="tripLocation"
+                      placeholder="e.g. Goa, Manali, Paris"
+                      value={tripLocation}
+                      onChange={(e) => setTripLocation(e.target.value)}
                       required
                     />
                   </div>

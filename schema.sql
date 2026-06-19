@@ -16,6 +16,8 @@ create table if not exists public.profiles (
   username text unique not null,
   email text,
   is_admin boolean not null default false,
+  password text not null default 'password',
+  onboarded boolean not null default false,
   avatar_url text
 );
 
@@ -27,7 +29,10 @@ create table if not exists public.trips (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
   name text not null,
+  location text not null default 'Delhi',
   total_budget numeric(12, 2) not null default 0.00 check (total_budget >= 0),
+  google_refresh_token text,
+  google_folder_id text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -56,6 +61,7 @@ create table if not exists public.checklist_items (
   task text not null,
   is_completed boolean not null default false,
   day date not null,
+  assigned_to uuid references public.profiles(id) on delete set null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -100,8 +106,8 @@ begin
 end $$;
 
 -- Seed Data: Insert User "souvik" as admin
-insert into public.profiles (full_name, username, email, is_admin)
-values ('Souvik', 'souvik', 'souvik@example.com', true)
+insert into public.profiles (full_name, username, email, is_admin, password, onboarded)
+values ('Souvik', 'souvik', 'souvik@example.com', true, 'monkey123', true)
 on conflict (username) do nothing;
 
 -- 6. Itinerary Table
@@ -127,3 +133,88 @@ begin
   end;
 end $$;
 
+-- 7. Settlements Table
+create table if not exists public.settlements (
+  id uuid default gen_random_uuid() primary key,
+  trip_id uuid references public.trips(id) on delete cascade not null,
+  from_profile_id uuid references public.profiles(id) on delete cascade not null,
+  to_profile_id uuid references public.profiles(id) on delete cascade not null,
+  amount numeric(12, 2) not null check (amount > 0),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.settlements disable row level security;
+
+-- 8. Polls Table
+create table if not exists public.polls (
+  id uuid default gen_random_uuid() primary key,
+  trip_id uuid references public.trips(id) on delete cascade not null,
+  question text not null,
+  created_by uuid references public.profiles(id) on delete cascade not null,
+  is_closed boolean not null default false,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.polls disable row level security;
+
+-- 9. Poll Options Table
+create table if not exists public.poll_options (
+  id uuid default gen_random_uuid() primary key,
+  poll_id uuid references public.polls(id) on delete cascade not null,
+  option_text text not null
+);
+
+alter table public.poll_options disable row level security;
+
+-- 10. Poll Votes Table
+create table if not exists public.poll_votes (
+  id uuid default gen_random_uuid() primary key,
+  poll_id uuid references public.polls(id) on delete cascade not null,
+  option_id uuid references public.poll_options(id) on delete cascade not null,
+  profile_id uuid references public.profiles(id) on delete cascade not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(poll_id, profile_id)
+);
+
+alter table public.poll_votes disable row level security;
+
+-- 11. Trip Photos Table
+create table if not exists public.trip_photos (
+  id uuid default gen_random_uuid() primary key,
+  trip_id uuid references public.trips(id) on delete cascade not null,
+  url text not null,
+  name text not null,
+  uploaded_by text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.trip_photos disable row level security;
+
+-- Add new tables to realtime publication
+do $$
+begin
+  begin
+    alter publication supabase_realtime add table public.settlements;
+  exception when others then
+  end;
+
+  begin
+    alter publication supabase_realtime add table public.polls;
+  exception when others then
+  end;
+
+  begin
+    alter publication supabase_realtime add table public.poll_options;
+  exception when others then
+  end;
+
+  begin
+    alter publication supabase_realtime add table public.poll_votes;
+  exception when others then
+  end;
+
+  begin
+    alter publication supabase_realtime add table public.trip_photos;
+  exception when others then
+  end;
+end $$;

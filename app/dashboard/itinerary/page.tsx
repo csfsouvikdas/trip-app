@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, MapPin, Plus, Trash2, ArrowRight, Image as ImageIcon, Sparkles, Loader2, Compass } from "lucide-react";
 import Link from "next/link";
+import { WeatherWidget } from "@/components/weather-widget";
 
 interface ItineraryItem {
   id: string;
@@ -146,10 +147,10 @@ export default function ItineraryPage() {
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Left Column: Form (Admins Only) */}
-        {isAdmin && (
-          <div className="lg:col-span-1">
-            <Card className="border border-neutral-200 dark:border-neutral-800 sticky top-24">
+        {/* Left Column: Form & Weather (Always Visible) */}
+        <div className="lg:col-span-1 space-y-6">
+          {isAdmin && (
+            <Card className="border border-neutral-200 dark:border-neutral-800">
               <form onSubmit={handleAddStop}>
                 <CardHeader>
                   <CardTitle className="text-base font-semibold">Add Itinerary Stop</CardTitle>
@@ -250,11 +251,13 @@ export default function ItineraryPage() {
                 </CardFooter>
               </form>
             </Card>
-          </div>
-        )}
+          )}
+
+          <WeatherWidget location={activeTrip.location || "Delhi"} />
+        </div>
 
         {/* Right Column: Timeline stops */}
-        <div className={isAdmin ? "lg:col-span-2 space-y-6" : "lg:col-span-3 space-y-6"}>
+        <div className="lg:col-span-2 space-y-6">
           {isLoading ? (
             <div className="py-20 text-center flex justify-center items-center">
               <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />

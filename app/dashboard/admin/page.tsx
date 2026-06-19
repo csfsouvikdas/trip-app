@@ -10,8 +10,18 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
-import { Shield, Plus, Trash2, Users, Map, Wallet, ShieldAlert, Loader2, ArrowRight } from "lucide-react";
+import { Shield, Plus, Trash2, Users, Map, Wallet, ShieldAlert, Loader2, ArrowRight, Check, X, Edit } from "lucide-react";
 import { useRouter } from "next/navigation";
+
+const categories = [
+  "Food & Dining",
+  "Lodging & Hotels",
+  "Transit & Flights",
+  "Activities & Tours",
+  "Shopping & Souvenirs",
+  "Entertainment",
+  "Miscellaneous",
+];
 
 interface AdminTrip extends Trip {
   profiles?: {
@@ -39,9 +49,30 @@ export default function AdminPanelPage() {
   const [newFullName, setNewFullName] = React.useState("");
   const [newUsername, setNewUsername] = React.useState("");
   const [newEmail, setNewEmail] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("password");
   const [newIsAdmin, setNewIsAdmin] = React.useState(false);
   const [isSubmittingUser, setIsSubmittingUser] = React.useState(false);
   const [userErrorMsg, setUserErrorMsg] = React.useState<string | null>(null);
+
+  // Inline edit states
+  const [editingUserId, setEditingUserId] = React.useState<string | null>(null);
+  const [editUserFullName, setEditUserFullName] = React.useState("");
+  const [editUserUsername, setEditUserUsername] = React.useState("");
+  const [editUserEmail, setEditUserEmail] = React.useState("");
+  const [editUserIsAdmin, setEditUserIsAdmin] = React.useState(false);
+  const [editUserPassword, setEditUserPassword] = React.useState("");
+
+  const [editingTripId, setEditingTripId] = React.useState<string | null>(null);
+  const [editTripName, setEditTripName] = React.useState("");
+  const [editTripBudget, setEditTripBudget] = React.useState("");
+  const [editTripUserId, setEditTripUserId] = React.useState("");
+
+  const [editingExpenseId, setEditingExpenseId] = React.useState<string | null>(null);
+  const [editExpenseDescription, setEditExpenseDescription] = React.useState("");
+  const [editExpenseAmount, setEditExpenseAmount] = React.useState("");
+  const [editExpenseCategory, setEditExpenseCategory] = React.useState("");
+  const [editExpenseDate, setEditExpenseDate] = React.useState("");
+  const [editExpenseCreatedBy, setEditExpenseCreatedBy] = React.useState("");
 
   // Redirect if not an admin
   React.useEffect(() => {
@@ -128,6 +159,7 @@ export default function AdminPanelPage() {
         username: cleanedUsername,
         email: newEmail.trim() || null,
         is_admin: newIsAdmin,
+        password: newPassword.trim() || "password",
       });
 
       if (error) throw error;
@@ -139,11 +171,120 @@ export default function AdminPanelPage() {
       setNewFullName("");
       setNewUsername("");
       setNewEmail("");
+      setNewPassword("password");
       setNewIsAdmin(false);
     } catch (err: any) {
       setUserErrorMsg(err.message || "Failed to create user");
     } finally {
       setIsSubmittingUser(false);
+    }
+  };
+
+  // Editing handlers for Users
+  const startEditUser = (u: any) => {
+    setEditingUserId(u.id);
+    setEditUserFullName(u.full_name);
+    setEditUserUsername(u.username || "");
+    setEditUserEmail(u.email || "");
+    setEditUserIsAdmin(!!u.is_admin);
+    setEditUserPassword(u.password || "");
+  };
+
+  const handleSaveUser = async (userId: string) => {
+    try {
+      const cleanedUsername = editUserUsername.trim().toLowerCase();
+      // Check if username already exists for a different user
+      const { data: existingUser } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", cleanedUsername)
+        .neq("id", userId)
+        .maybeSingle();
+
+      if (existingUser) {
+        throw new Error("Username already taken by another user.");
+      }
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: editUserFullName.trim(),
+          username: cleanedUsername,
+          email: editUserEmail.trim() || null,
+          is_admin: editUserIsAdmin,
+          password: editUserPassword.trim(),
+        })
+        .eq("id", userId);
+      if (error) throw error;
+      setEditingUserId(null);
+      queryClient.invalidateQueries({ queryKey: ["admin_users"] });
+    } catch (err: any) {
+      alert(err.message || "Failed to update user");
+    }
+  };
+
+  // Editing handlers for Trips
+  const startEditTrip = (t: any) => {
+    setEditingTripId(t.id);
+    setEditTripName(t.name);
+    setEditTripBudget(t.total_budget.toString());
+    setEditTripUserId(t.user_id);
+  };
+
+  const handleSaveTrip = async (tripId: string) => {
+    try {
+      const budgetNum = Number(editTripBudget);
+      if (isNaN(budgetNum) || budgetNum < 0) {
+        throw new Error("Please enter a valid positive budget number");
+      }
+      const { error } = await supabase
+        .from("trips")
+        .update({
+          name: editTripName.trim(),
+          total_budget: budgetNum,
+          user_id: editTripUserId,
+        })
+        .eq("id", tripId);
+      if (error) throw error;
+      setEditingTripId(null);
+      queryClient.invalidateQueries({ queryKey: ["admin_trips"] });
+    } catch (err: any) {
+      alert(err.message || "Failed to update trip");
+    }
+  };
+
+  // Editing handlers for Expenses
+  const startEditExpense = (exp: any) => {
+    setEditingExpenseId(exp.id);
+    setEditExpenseDescription(exp.description);
+    setEditExpenseAmount(exp.amount.toString());
+    setEditExpenseCategory(exp.category);
+    setEditExpenseDate(exp.date);
+    setEditExpenseCreatedBy(exp.created_by || "");
+  };
+
+  const handleSaveExpense = async (expenseId: string) => {
+    try {
+      const amountNum = Number(editExpenseAmount);
+      if (isNaN(amountNum) || amountNum <= 0) {
+        throw new Error("Please enter a valid positive amount");
+      }
+      const { error } = await supabase
+        .from("expenses")
+        .update({
+          description: editExpenseDescription.trim(),
+          amount: amountNum,
+          category: editExpenseCategory,
+          date: editExpenseDate,
+          created_by: editExpenseCreatedBy,
+        })
+        .eq("id", expenseId);
+      if (error) throw error;
+      setEditingExpenseId(null);
+      queryClient.invalidateQueries({ queryKey: ["admin_global_expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_expenses"] });
+    } catch (err: any) {
+      alert(err.message || "Failed to update expense");
     }
   };
 
@@ -410,6 +551,18 @@ export default function AdminPanelPage() {
                     />
                   </div>
 
+                  <div className="space-y-1.5">
+                    <Label htmlFor="newPassword">Initial Password</Label>
+                    <Input
+                      id="newPassword"
+                      type="password"
+                      placeholder="e.g. password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+
                   <div className="flex items-center space-x-2 pt-2">
                     <Checkbox
                       id="newIsAdmin"
@@ -464,6 +617,7 @@ export default function AdminPanelPage() {
                           <th className="pb-3 pt-1 pl-2">Name</th>
                           <th className="pb-3 pt-1">Username</th>
                           <th className="pb-3 pt-1">Email</th>
+                          <th className="pb-3 pt-1">Password</th>
                           <th className="pb-3 pt-1">Privileges</th>
                           <th className="pb-3 pt-1 pr-2 text-right">Actions</th>
                         </tr>
@@ -471,33 +625,90 @@ export default function AdminPanelPage() {
                       <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
                         {users.map((u) => (
                           <tr key={u.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 group">
-                            <td className="py-3 pl-2 font-medium text-neutral-800 dark:text-neutral-200">
-                              {u.full_name}
-                            </td>
-                            <td className="py-3 text-neutral-600 dark:text-neutral-400">@{u.username}</td>
-                            <td className="py-3 text-neutral-500 dark:text-neutral-400">{u.email || "N/A"}</td>
-                            <td className="py-3">
-                              {u.is_admin ? (
-                                <span className="text-[10px] bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400 border border-red-200 dark:border-red-900/50 px-2 py-0.5 rounded-full font-bold">
-                                  Admin
-                                </span>
-                              ) : (
-                                <span className="text-[10px] bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-800 px-2 py-0.5 rounded-full font-medium">
-                                  Planner
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-3 pr-2 text-right">
-                              {u.username !== "souvik" && (
-                                <button
-                                  onClick={() => handleDeleteUser(u.id, u.username || "")}
-                                  className="p-1.5 text-neutral-400 hover:text-red-500 dark:hover:text-red-400 rounded transition-apple cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                  title="Delete User"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              )}
-                            </td>
+                            {editingUserId === u.id ? (
+                              <>
+                                <td className="py-2 pl-2">
+                                  <Input value={editUserFullName} onChange={(e) => setEditUserFullName(e.target.value)} className="h-8 text-xs bg-transparent" />
+                                </td>
+                                <td className="py-2">
+                                  <Input value={editUserUsername} onChange={(e) => setEditUserUsername(e.target.value)} className="h-8 text-xs bg-transparent" />
+                                </td>
+                                <td className="py-2">
+                                  <Input value={editUserEmail} onChange={(e) => setEditUserEmail(e.target.value)} className="h-8 text-xs bg-transparent" />
+                                </td>
+                                <td className="py-2">
+                                  <Input value={editUserPassword} onChange={(e) => setEditUserPassword(e.target.value)} className="h-8 text-xs bg-transparent" type="password" />
+                                </td>
+                                <td className="py-2">
+                                  <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={`edit-isadmin-${u.id}`}
+                                      checked={editUserIsAdmin}
+                                      onCheckedChange={(checked) => setEditUserIsAdmin(!!checked)}
+                                    />
+                                    <Label htmlFor={`edit-isadmin-${u.id}`} className="text-xs">Admin</Label>
+                                  </div>
+                                </td>
+                                <td className="py-2 pr-2 text-right">
+                                  <div className="flex justify-end gap-1.5">
+                                    <button
+                                      onClick={() => handleSaveUser(u.id)}
+                                      className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 rounded cursor-pointer"
+                                      title="Save Changes"
+                                    >
+                                      <Check className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingUserId(null)}
+                                      className="p-1 text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded cursor-pointer"
+                                      title="Cancel"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="py-3 pl-2 font-medium text-neutral-800 dark:text-neutral-200">
+                                  {u.full_name}
+                                </td>
+                                <td className="py-3 text-neutral-600 dark:text-neutral-400">@{u.username}</td>
+                                <td className="py-3 text-neutral-500 dark:text-neutral-400">{u.email || "N/A"}</td>
+                                <td className="py-3 text-neutral-500 dark:text-neutral-400">••••••••</td>
+                                <td className="py-3">
+                                  {u.is_admin ? (
+                                    <span className="text-[10px] bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400 border border-red-200 dark:border-red-900/50 px-2 py-0.5 rounded-full font-bold">
+                                      Admin
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-800 px-2 py-0.5 rounded-full font-medium">
+                                      Planner
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 pr-2 text-right">
+                                  <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+                                    <button
+                                      onClick={() => startEditUser(u)}
+                                      className="p-1 text-neutral-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded transition-apple cursor-pointer"
+                                      title="Edit User"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </button>
+                                    {u.username !== "souvik" && (
+                                      <button
+                                        onClick={() => handleDeleteUser(u.id, u.username || "")}
+                                        className="p-1 text-neutral-400 hover:text-red-500 dark:hover:text-red-400 rounded transition-apple cursor-pointer"
+                                        title="Delete User"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -513,29 +724,57 @@ export default function AdminPanelPage() {
                             key={u.id}
                             className="p-3.5 rounded-xl border border-neutral-150 dark:border-neutral-850 hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 transition-apple space-y-2 relative"
                           >
-                            <div className="flex justify-between items-start gap-2">
-                              <div>
-                                <p className="font-semibold text-neutral-800 dark:text-neutral-200 text-sm">{u.full_name}</p>
-                                <p className="text-xs text-neutral-400">@{u.username}</p>
+                            {editingUserId === u.id ? (
+                              <div className="space-y-2">
+                                <Input value={editUserFullName} onChange={(e) => setEditUserFullName(e.target.value)} className="h-8 text-xs" placeholder="Full Name" />
+                                <Input value={editUserUsername} onChange={(e) => setEditUserUsername(e.target.value)} className="h-8 text-xs" placeholder="Username" />
+                                <Input value={editUserEmail} onChange={(e) => setEditUserEmail(e.target.value)} className="h-8 text-xs" placeholder="Email" />
+                                <Input value={editUserPassword} onChange={(e) => setEditUserPassword(e.target.value)} className="h-8 text-xs" placeholder="Password" type="password" />
+                                <div className="flex items-center space-x-2 pt-1">
+                                  <Checkbox id={`edit-isadmin-mob-${u.id}`} checked={editUserIsAdmin} onCheckedChange={(checked) => setEditUserIsAdmin(!!checked)} />
+                                  <Label htmlFor={`edit-isadmin-mob-${u.id}`} className="text-xs">Administrator Access</Label>
+                                </div>
+                                <div className="flex justify-end gap-1.5 pt-1 border-t border-neutral-100 dark:border-neutral-800">
+                                  <Button size="sm" onClick={() => handleSaveUser(u.id)} className="h-7 text-[10px]" variant="default">Save</Button>
+                                  <Button size="sm" onClick={() => setEditingUserId(null)} className="h-7 text-[10px]" variant="outline">Cancel</Button>
+                                </div>
                               </div>
-                              {u.username !== "souvik" && (
-                                <button
-                                  onClick={() => handleDeleteUser(u.id, u.username || "")}
-                                  className="p-1 text-neutral-400 hover:text-red-500 rounded cursor-pointer"
-                                  title="Delete User"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              )}
-                            </div>
-                            <div className="flex items-center justify-between text-xs pt-1 border-t border-neutral-100 dark:border-neutral-800/40">
-                              <span className="text-neutral-450 dark:text-neutral-400 truncate max-w-[150px]">{u.email || "No Email"}</span>
-                              {u.is_admin ? (
-                                <span className="text-[9px] bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400 border border-red-200 px-2 py-0.5 rounded font-bold">Admin</span>
-                              ) : (
-                                <span className="text-[9px] bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 border border-neutral-200 px-2 py-0.5 rounded font-medium">Planner</span>
-                              )}
-                            </div>
+                            ) : (
+                              <>
+                                <div className="flex justify-between items-start gap-2">
+                                  <div>
+                                    <p className="font-semibold text-neutral-800 dark:text-neutral-200 text-sm">{u.full_name}</p>
+                                    <p className="text-xs text-neutral-400">@{u.username}</p>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => startEditUser(u)}
+                                      className="p-1 text-neutral-400 hover:text-blue-500 rounded cursor-pointer"
+                                      title="Edit User"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </button>
+                                    {u.username !== "souvik" && (
+                                      <button
+                                        onClick={() => handleDeleteUser(u.id, u.username || "")}
+                                        className="p-1 text-neutral-400 hover:text-red-500 rounded cursor-pointer"
+                                        title="Delete User"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between text-xs pt-1 border-t border-neutral-100 dark:border-neutral-800/40">
+                                  <span className="text-neutral-450 dark:text-neutral-400 truncate max-w-[150px]">{u.email || "No Email"}</span>
+                                  {u.is_admin ? (
+                                    <span className="text-[9px] bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400 border border-red-200 px-2 py-0.5 rounded font-bold">Admin</span>
+                                  ) : (
+                                    <span className="text-[9px] bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 border border-neutral-200 px-2 py-0.5 rounded font-medium">Planner</span>
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </div>
                         ))
                       )}
@@ -658,27 +897,80 @@ export default function AdminPanelPage() {
                         <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
                           {trips.map((t) => (
                             <tr key={t.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 group">
-                              <td className="py-3 pl-2 font-medium text-neutral-800 dark:text-neutral-200">
-                                {t.name}
-                              </td>
-                              <td className="py-3 text-neutral-600 dark:text-neutral-400">
-                                {t.profiles ? `${t.profiles.full_name} (@${t.profiles.username})` : "Unknown Owner"}
-                              </td>
-                              <td className="py-3 font-semibold text-neutral-800 dark:text-neutral-200">
-                                {formatCurrency(t.total_budget)}
-                              </td>
-                              <td className="py-3 text-neutral-500 dark:text-neutral-400">
-                                {new Date(t.created_at).toLocaleDateString()}
-                              </td>
-                              <td className="py-3 pr-2 text-right">
-                                <button
-                                  onClick={() => handleDeleteTrip(t.id, t.name)}
-                                  className="p-1.5 text-neutral-400 hover:text-red-500 dark:hover:text-red-400 rounded transition-apple cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                  title="Delete Trip"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </td>
+                              {editingTripId === t.id ? (
+                                <>
+                                  <td className="py-2 pl-2">
+                                    <Input value={editTripName} onChange={(e) => setEditTripName(e.target.value)} className="h-8 text-xs bg-transparent" />
+                                  </td>
+                                  <td className="py-2">
+                                    <Select value={editTripUserId} onChange={(e) => setEditTripUserId(e.target.value)} className="h-8 text-xs bg-transparent">
+                                      <option value="">Select owner...</option>
+                                      {users.map((u) => (
+                                        <option key={u.id} value={u.id}>
+                                          {u.full_name} (@{u.username})
+                                        </option>
+                                      ))}
+                                    </Select>
+                                  </td>
+                                  <td className="py-2">
+                                    <Input type="number" step="0.01" value={editTripBudget} onChange={(e) => setEditTripBudget(e.target.value)} className="h-8 text-xs bg-transparent" />
+                                  </td>
+                                  <td className="py-2 text-neutral-500 dark:text-neutral-400">
+                                    {new Date(t.created_at).toLocaleDateString()}
+                                  </td>
+                                  <td className="py-2 pr-2 text-right">
+                                    <div className="flex justify-end gap-1.5">
+                                      <button
+                                        onClick={() => handleSaveTrip(t.id)}
+                                        className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 rounded cursor-pointer"
+                                        title="Save Changes"
+                                      >
+                                        <Check className="h-4 w-4" />
+                                      </button>
+                                      <button
+                                        onClick={() => setEditingTripId(null)}
+                                        className="p-1 text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded cursor-pointer"
+                                        title="Cancel"
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </>
+                              ) : (
+                                <>
+                                  <td className="py-3 pl-2 font-medium text-neutral-800 dark:text-neutral-200">
+                                    {t.name}
+                                  </td>
+                                  <td className="py-3 text-neutral-600 dark:text-neutral-400">
+                                    {t.profiles ? `${t.profiles.full_name} (@${t.profiles.username})` : "Unknown Owner"}
+                                  </td>
+                                  <td className="py-3 font-semibold text-neutral-800 dark:text-neutral-200">
+                                    {formatCurrency(t.total_budget)}
+                                  </td>
+                                  <td className="py-3 text-neutral-500 dark:text-neutral-400">
+                                    {new Date(t.created_at).toLocaleDateString()}
+                                  </td>
+                                  <td className="py-3 pr-2 text-right">
+                                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+                                      <button
+                                        onClick={() => startEditTrip(t)}
+                                        className="p-1.5 text-neutral-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded transition-apple cursor-pointer"
+                                        title="Edit Trip"
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteTrip(t.id, t.name)}
+                                        className="p-1.5 text-neutral-400 hover:text-red-500 dark:hover:text-red-400 rounded transition-apple cursor-pointer"
+                                        title="Delete Trip"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -692,25 +984,55 @@ export default function AdminPanelPage() {
                           key={t.id}
                           className="p-3.5 rounded-xl border border-neutral-150 dark:border-neutral-850 hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 transition-apple space-y-2 relative"
                         >
-                          <div className="flex justify-between items-start gap-2">
-                            <div>
-                              <p className="font-semibold text-neutral-800 dark:text-neutral-200 text-sm">{t.name}</p>
-                              <p className="text-xs text-neutral-400">
-                                By {t.profiles ? `${t.profiles.full_name} (@${t.profiles.username})` : "Unknown Owner"}
-                              </p>
+                          {editingTripId === t.id ? (
+                            <div className="space-y-2">
+                              <Input value={editTripName} onChange={(e) => setEditTripName(e.target.value)} className="h-8 text-xs" placeholder="Trip Name" />
+                              <Select value={editTripUserId} onChange={(e) => setEditTripUserId(e.target.value)} className="h-8 text-xs">
+                                <option value="">Select owner...</option>
+                                {users.map((u) => (
+                                  <option key={u.id} value={u.id}>
+                                    {u.full_name} (@{u.username})
+                                  </option>
+                                ))}
+                              </Select>
+                              <Input type="number" step="0.01" value={editTripBudget} onChange={(e) => setEditTripBudget(e.target.value)} className="h-8 text-xs" placeholder="Budget" />
+                              <div className="flex justify-end gap-1.5 pt-1 border-t border-neutral-100 dark:border-neutral-800">
+                                <Button size="sm" onClick={() => handleSaveTrip(t.id)} className="h-7 text-[10px]" variant="default">Save</Button>
+                                <Button size="sm" onClick={() => setEditingTripId(null)} className="h-7 text-[10px]" variant="outline">Cancel</Button>
+                              </div>
                             </div>
-                            <button
-                              onClick={() => handleDeleteTrip(t.id, t.name)}
-                              className="p-1 text-neutral-400 hover:text-red-500 rounded cursor-pointer"
-                              title="Delete Trip"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                          <div className="flex items-center justify-between text-xs pt-1 border-t border-neutral-100 dark:border-neutral-800/40">
-                            <span className="font-bold text-neutral-850 dark:text-neutral-200">{formatCurrency(t.total_budget)}</span>
-                            <span className="text-[10px] text-neutral-400">{new Date(t.created_at).toLocaleDateString()}</span>
-                          </div>
+                          ) : (
+                            <>
+                              <div className="flex justify-between items-start gap-2">
+                                <div>
+                                  <p className="font-semibold text-neutral-800 dark:text-neutral-200 text-sm">{t.name}</p>
+                                  <p className="text-xs text-neutral-400">
+                                    By {t.profiles ? `${t.profiles.full_name} (@${t.profiles.username})` : "Unknown Owner"}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => startEditTrip(t)}
+                                    className="p-1 text-neutral-400 hover:text-blue-500 rounded cursor-pointer"
+                                    title="Edit Trip"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteTrip(t.id, t.name)}
+                                    className="p-1 text-neutral-400 hover:text-red-500 rounded cursor-pointer"
+                                    title="Delete Trip"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between text-xs pt-1 border-t border-neutral-100 dark:border-neutral-800/40">
+                                <span className="font-bold text-neutral-850 dark:text-neutral-200">{formatCurrency(t.total_budget)}</span>
+                                <span className="text-[10px] text-neutral-400">{new Date(t.created_at).toLocaleDateString()}</span>
+                              </div>
+                            </>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -760,30 +1082,90 @@ export default function AdminPanelPage() {
                         const tripName = exp.trips?.name || "Deleted Trip";
                         return (
                           <tr key={exp.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 group">
-                            <td className="py-3 pl-2 font-medium text-neutral-800 dark:text-neutral-200">
-                              <div>
-                                {plannerName} <span className="text-xs font-normal text-neutral-400">(@{plannerUsername})</span>
-                              </div>
-                              {exp.created_by && (
-                                <div className="text-[10px] text-neutral-450 dark:text-neutral-400 font-medium mt-0.5">
-                                  Logged by: <span className="font-semibold text-neutral-600 dark:text-neutral-300">@{exp.created_by}</span>
-                                </div>
-                              )}
-                            </td>
-                            <td className="py-3 text-neutral-600 dark:text-neutral-400">{tripName}</td>
-                            <td className="py-3 text-neutral-800 dark:text-neutral-200 font-medium">{exp.description}</td>
-                            <td className="py-3 text-neutral-500 dark:text-neutral-400">{exp.category}</td>
-                            <td className="py-3 text-neutral-500 dark:text-neutral-400">{exp.date}</td>
-                            <td className="py-3 font-bold text-red-500">{formatCurrency(Number(exp.amount))}</td>
-                            <td className="py-3 pr-2 text-right">
-                              <button
-                                onClick={() => handleDeleteExpense(exp.id, exp.description)}
-                                className="p-1.5 text-neutral-400 hover:text-red-500 dark:hover:text-red-400 rounded cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                title="Delete Expense"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </td>
+                            {editingExpenseId === exp.id ? (
+                              <>
+                                <td className="py-2 pl-2">
+                                  <Select value={editExpenseCreatedBy} onChange={(e) => setEditExpenseCreatedBy(e.target.value)} className="h-8 text-xs bg-transparent">
+                                    {users.map((u) => (
+                                      <option key={u.username} value={u.username}>
+                                        {u.full_name} (@{u.username})
+                                      </option>
+                                    ))}
+                                  </Select>
+                                </td>
+                                <td className="py-2 text-neutral-600 dark:text-neutral-400">{tripName}</td>
+                                <td className="py-2">
+                                  <Input value={editExpenseDescription} onChange={(e) => setEditExpenseDescription(e.target.value)} className="h-8 text-xs bg-transparent" />
+                                </td>
+                                <td className="py-2">
+                                  <Select value={editExpenseCategory} onChange={(e) => setEditExpenseCategory(e.target.value)} className="h-8 text-xs bg-transparent">
+                                    {categories.map((c) => (
+                                      <option key={c} value={c}>{c}</option>
+                                    ))}
+                                  </Select>
+                                </td>
+                                <td className="py-2">
+                                  <Input type="date" value={editExpenseDate} onChange={(e) => setEditExpenseDate(e.target.value)} className="h-8 text-xs bg-transparent" />
+                                </td>
+                                <td className="py-2 font-bold text-red-500">
+                                  <Input type="number" step="0.01" value={editExpenseAmount} onChange={(e) => setEditExpenseAmount(e.target.value)} className="h-8 text-xs bg-transparent font-bold text-red-500" />
+                                </td>
+                                <td className="py-2 pr-2 text-right">
+                                  <div className="flex justify-end gap-1.5">
+                                    <button
+                                      onClick={() => handleSaveExpense(exp.id)}
+                                      className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 rounded cursor-pointer"
+                                      title="Save Changes"
+                                    >
+                                      <Check className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingExpenseId(null)}
+                                      className="p-1 text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded cursor-pointer"
+                                      title="Cancel"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="py-3 pl-2 font-medium text-neutral-800 dark:text-neutral-200">
+                                  <div>
+                                    {plannerName} <span className="text-xs font-normal text-neutral-400">(@{plannerUsername})</span>
+                                  </div>
+                                  {exp.created_by && (
+                                    <div className="text-[10px] text-neutral-450 dark:text-neutral-400 font-medium mt-0.5">
+                                      Logged by: <span className="font-semibold text-neutral-600 dark:text-neutral-300">@{exp.created_by}</span>
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-3 text-neutral-600 dark:text-neutral-400">{tripName}</td>
+                                <td className="py-3 text-neutral-800 dark:text-neutral-200 font-medium">{exp.description}</td>
+                                <td className="py-3 text-neutral-500 dark:text-neutral-400">{exp.category}</td>
+                                <td className="py-3 text-neutral-500 dark:text-neutral-400">{exp.date}</td>
+                                <td className="py-3 font-bold text-red-500">{formatCurrency(Number(exp.amount))}</td>
+                                <td className="py-3 pr-2 text-right">
+                                  <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+                                    <button
+                                      onClick={() => startEditExpense(exp)}
+                                      className="p-1.5 text-neutral-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded transition-apple cursor-pointer"
+                                      title="Edit Expense"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteExpense(exp.id, exp.description)}
+                                      className="p-1.5 text-neutral-400 hover:text-red-500 dark:hover:text-red-400 rounded transition-apple cursor-pointer"
+                                      title="Delete Expense"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </>
+                            )}
                           </tr>
                         );
                       })}
@@ -802,30 +1184,63 @@ export default function AdminPanelPage() {
                         key={exp.id}
                         className="p-3.5 rounded-xl border border-neutral-150 dark:border-neutral-850 hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 transition-apple space-y-2 relative"
                       >
-                        <div className="flex justify-between items-start gap-2">
-                          <div>
-                            <p className="font-semibold text-neutral-800 dark:text-neutral-200 text-sm">{exp.description}</p>
-                            <p className="text-xs text-neutral-450 dark:text-neutral-400">
-                              {plannerName} (@{plannerUsername}) • <span className="font-medium">{tripName}</span>
-                            </p>
-                            {exp.created_by && (
-                              <p className="text-[10px] text-neutral-400 mt-0.5">
-                                Logged by: <span className="font-semibold">@{exp.created_by}</span>
-                              </p>
-                            )}
+                        {editingExpenseId === exp.id ? (
+                          <div className="space-y-2">
+                            <Input value={editExpenseDescription} onChange={(e) => setEditExpenseDescription(e.target.value)} className="h-8 text-xs" placeholder="Description" />
+                            <Select value={editExpenseCreatedBy} onChange={(e) => setEditExpenseCreatedBy(e.target.value)} className="h-8 text-xs">
+                              {users.map((u) => (
+                                <option key={u.username} value={u.username}>@{u.username}</option>
+                              ))}
+                            </Select>
+                            <Select value={editExpenseCategory} onChange={(e) => setEditExpenseCategory(e.target.value)} className="h-8 text-xs">
+                              {categories.map((c) => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </Select>
+                            <Input type="date" value={editExpenseDate} onChange={(e) => setEditExpenseDate(e.target.value)} className="h-8 text-xs" />
+                            <Input type="number" step="0.01" value={editExpenseAmount} onChange={(e) => setEditExpenseAmount(e.target.value)} className="h-8 text-xs font-bold text-red-500" placeholder="Amount" />
+                            <div className="flex justify-end gap-1.5 pt-1 border-t border-neutral-100 dark:border-neutral-800">
+                              <Button size="sm" onClick={() => handleSaveExpense(exp.id)} className="h-7 text-[10px]" variant="default">Save</Button>
+                              <Button size="sm" onClick={() => setEditingExpenseId(null)} className="h-7 text-[10px]" variant="outline">Cancel</Button>
+                            </div>
                           </div>
-                          <button
-                            onClick={() => handleDeleteExpense(exp.id, exp.description)}
-                            className="p-1 text-neutral-400 hover:text-red-500 rounded cursor-pointer"
-                            title="Delete Expense"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <div className="flex items-center justify-between text-xs pt-1 border-t border-neutral-100 dark:border-neutral-800/40">
-                          <span className="text-[10px] text-neutral-400">{exp.category} • {exp.date}</span>
-                          <span className="font-bold text-red-500">{formatCurrency(Number(exp.amount))}</span>
-                        </div>
+                        ) : (
+                          <>
+                            <div className="flex justify-between items-start gap-2">
+                              <div>
+                                <p className="font-semibold text-neutral-800 dark:text-neutral-200 text-sm">{exp.description}</p>
+                                <p className="text-xs text-neutral-450 dark:text-neutral-400">
+                                  {plannerName} (@{plannerUsername}) • <span className="font-medium">{tripName}</span>
+                                </p>
+                                {exp.created_by && (
+                                  <p className="text-[10px] text-neutral-400 mt-0.5">
+                                    Logged by: <span className="font-semibold">@{exp.created_by}</span>
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => startEditExpense(exp)}
+                                  className="p-1 text-neutral-400 hover:text-blue-500 rounded cursor-pointer"
+                                  title="Edit Expense"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteExpense(exp.id, exp.description)}
+                                  className="p-1 text-neutral-400 hover:text-red-500 rounded cursor-pointer"
+                                  title="Delete Expense"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between text-xs pt-1 border-t border-neutral-100 dark:border-neutral-800/40">
+                              <span className="text-[10px] text-neutral-400">{exp.category} • {exp.date}</span>
+                              <span className="font-bold text-red-500">{formatCurrency(Number(exp.amount))}</span>
+                            </div>
+                          </>
+                        )}
                       </div>
                     );
                   })}
