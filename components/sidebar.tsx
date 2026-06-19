@@ -21,6 +21,7 @@ export function Sidebar() {
   const router = useRouter();
   const { profile, activeTrip, logout, theme, toggleTheme } = useDashboard();
   const supabase = createClient();
+  const [isOpen, setIsOpen] = React.useState(false);
 
   const sidebarItems = React.useMemo(() => {
     const items = [...navItems];
@@ -36,8 +37,21 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Desktop Sidebar (md and above) */}
-      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 transition-apple z-30">
+      {/* Sidebar Backdrop Overlay on Mobile */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px] md:hidden animate-in fade-in duration-200"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Sidebar Container (Desktop fixed, Mobile sliding overlay) */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-64 flex flex-col border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 transition-transform duration-300 ease-in-out md:translate-x-0 md:z-30",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
         {/* Brand / Logo */}
         <div className="flex items-center gap-2.5 px-6 h-16 border-b border-neutral-100 dark:border-neutral-800">
           <div className="h-8 w-8 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 flex items-center justify-center shadow-sm">
@@ -69,6 +83,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setIsOpen(false)}
                 className={cn(
                   "flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-apple group cursor-pointer",
                   isActive
@@ -124,7 +139,12 @@ export function Sidebar() {
 
       {/* Mobile Bottom Tab Navigation (Under md) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md px-2 py-1 z-40 flex justify-around items-center transition-apple shadow-[0_-4px_16px_rgba(0,0,0,0.03)] pb-safe-bottom">
-        {sidebarItems.map((item) => {
+        {[
+          { href: "/dashboard/trips", label: "Trips", icon: Map },
+          { href: "/dashboard/expenses", label: "Expenses", icon: CreditCard },
+          { href: "/dashboard/itinerary", label: "Itinerary", icon: Calendar },
+          { href: "/dashboard/checklist", label: "Checklist", icon: ListTodo },
+        ].map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href || (item.href === "/dashboard/trips" && pathname === "/dashboard");
           return (
@@ -132,30 +152,23 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center gap-1.5 py-1 px-3 rounded-lg text-[10px] font-medium transition-apple shrink-0 cursor-pointer min-w-[64px]",
+                "flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-lg text-[10px] font-medium transition-apple shrink-0 cursor-pointer min-w-[56px]",
                 isActive
                   ? "text-[hsl(var(--accent))]"
                   : "text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
               )}
             >
               <Icon className="h-5 w-5" />
-              <span>{item.label.split(" ")[0]}</span>
+              <span>{item.label}</span>
             </Link>
           );
         })}
         <button
-          onClick={toggleTheme}
-          className="flex flex-col items-center justify-center gap-1.5 py-1 px-3 rounded-lg text-[10px] font-medium text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 cursor-pointer min-w-[64px]"
+          onClick={() => setIsOpen(true)}
+          className="flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-lg text-[10px] font-medium text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 cursor-pointer min-w-[56px]"
         >
-          {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-          <span>Theme</span>
-        </button>
-        <button
-          onClick={handleSignOut}
-          className="flex flex-col items-center justify-center gap-1.5 py-1 px-3 rounded-lg text-[10px] font-medium text-neutral-400 hover:text-red-500 cursor-pointer min-w-[64px]"
-        >
-          <LogOut className="h-5 w-5" />
-          <span>Exit</span>
+          <Menu className="h-5 w-5" />
+          <span>Menu</span>
         </button>
       </nav>
     </>

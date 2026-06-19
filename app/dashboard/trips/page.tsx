@@ -259,7 +259,7 @@ export default function TripsPage() {
                   {profile?.is_admin && (
                     <button
                       onClick={(e) => handleDeleteTrip(e, trip.id)}
-                      className="p-1.5 text-neutral-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-apple cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      className="p-1.5 text-neutral-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-apple cursor-pointer opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
                       title="Delete Trip"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

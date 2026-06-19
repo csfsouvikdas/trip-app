@@ -351,7 +351,7 @@ export default function ChecklistPage() {
                               </div>
                               <button
                                 onClick={() => handleDelete(item.id)}
-                                className="p-1 text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded cursor-pointer opacity-0 group-hover:opacity-100 transition-apple"
+                                className="p-1 text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded cursor-pointer opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-apple"
                                 title="Delete task"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />

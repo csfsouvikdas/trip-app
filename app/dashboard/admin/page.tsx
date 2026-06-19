@@ -632,7 +632,7 @@ export default function AdminPanelPage() {
                 <CardTitle className="text-base font-semibold">Global Trips List</CardTitle>
                 <CardDescription>Review all destinations, budgets, and planners.</CardDescription>
               </CardHeader>
-              <CardContent className="overflow-x-auto">
+              <CardContent>
                 {isLoadingTrips ? (
                   <div className="py-10 text-center flex justify-center items-center">
                     <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
@@ -642,44 +642,79 @@ export default function AdminPanelPage() {
                     No trips have been planned yet.
                   </div>
                 ) : (
-                  <table className="w-full min-w-[500px] text-sm text-left">
-                    <thead>
-                      <tr className="border-b border-neutral-200 dark:border-neutral-800 text-neutral-400 text-xs uppercase font-bold">
-                        <th className="pb-3 pt-1 pl-2">Destination / Trip</th>
-                        <th className="pb-3 pt-1">Trip Planner</th>
-                        <th className="pb-3 pt-1">Budget</th>
-                        <th className="pb-3 pt-1">Created Date</th>
-                        <th className="pb-3 pt-1 pr-2 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                  <>
+                    {/* Desktop table view */}
+                    <div className="overflow-x-auto hidden sm:block">
+                      <table className="w-full min-w-[500px] text-sm text-left">
+                        <thead>
+                          <tr className="border-b border-neutral-200 dark:border-neutral-800 text-neutral-400 text-xs uppercase font-bold">
+                            <th className="pb-3 pt-1 pl-2">Destination / Trip</th>
+                            <th className="pb-3 pt-1">Trip Planner</th>
+                            <th className="pb-3 pt-1">Budget</th>
+                            <th className="pb-3 pt-1">Created Date</th>
+                            <th className="pb-3 pt-1 pr-2 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                          {trips.map((t) => (
+                            <tr key={t.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 group">
+                              <td className="py-3 pl-2 font-medium text-neutral-800 dark:text-neutral-200">
+                                {t.name}
+                              </td>
+                              <td className="py-3 text-neutral-600 dark:text-neutral-400">
+                                {t.profiles ? `${t.profiles.full_name} (@${t.profiles.username})` : "Unknown Owner"}
+                              </td>
+                              <td className="py-3 font-semibold text-neutral-800 dark:text-neutral-200">
+                                {formatCurrency(t.total_budget)}
+                              </td>
+                              <td className="py-3 text-neutral-500 dark:text-neutral-400">
+                                {new Date(t.created_at).toLocaleDateString()}
+                              </td>
+                              <td className="py-3 pr-2 text-right">
+                                <button
+                                  onClick={() => handleDeleteTrip(t.id, t.name)}
+                                  className="p-1.5 text-neutral-400 hover:text-red-500 dark:hover:text-red-400 rounded transition-apple cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                  title="Delete Trip"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile list view */}
+                    <div className="block sm:hidden space-y-3.5">
                       {trips.map((t) => (
-                        <tr key={t.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 group">
-                          <td className="py-3 pl-2 font-medium text-neutral-800 dark:text-neutral-200">
-                            {t.name}
-                          </td>
-                          <td className="py-3 text-neutral-600 dark:text-neutral-400">
-                            {t.profiles ? `${t.profiles.full_name} (@${t.profiles.username})` : "Unknown Owner"}
-                          </td>
-                          <td className="py-3 font-semibold text-neutral-800 dark:text-neutral-200">
-                            {formatCurrency(t.total_budget)}
-                          </td>
-                          <td className="py-3 text-neutral-500 dark:text-neutral-400">
-                            {new Date(t.created_at).toLocaleDateString()}
-                          </td>
-                          <td className="py-3 pr-2 text-right">
+                        <div
+                          key={t.id}
+                          className="p-3.5 rounded-xl border border-neutral-150 dark:border-neutral-850 hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 transition-apple space-y-2 relative"
+                        >
+                          <div className="flex justify-between items-start gap-2">
+                            <div>
+                              <p className="font-semibold text-neutral-800 dark:text-neutral-200 text-sm">{t.name}</p>
+                              <p className="text-xs text-neutral-400">
+                                By {t.profiles ? `${t.profiles.full_name} (@${t.profiles.username})` : "Unknown Owner"}
+                              </p>
+                            </div>
                             <button
                               onClick={() => handleDeleteTrip(t.id, t.name)}
-                              className="p-1.5 text-neutral-400 hover:text-red-500 dark:hover:text-red-400 rounded transition-apple cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                              className="p-1 text-neutral-400 hover:text-red-500 rounded cursor-pointer"
                               title="Delete Trip"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
-                          </td>
-                        </tr>
+                          </div>
+                          <div className="flex items-center justify-between text-xs pt-1 border-t border-neutral-100 dark:border-neutral-800/40">
+                            <span className="font-bold text-neutral-850 dark:text-neutral-200">{formatCurrency(t.total_budget)}</span>
+                            <span className="text-[10px] text-neutral-400">{new Date(t.created_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -693,7 +728,7 @@ export default function AdminPanelPage() {
             <CardTitle className="text-base font-semibold">Global Expense Audit Trail</CardTitle>
             <CardDescription>Log of all expenditures incurred across the platform.</CardDescription>
           </CardHeader>
-          <CardContent className="overflow-x-auto">
+          <CardContent>
             {isLoadingGlobalExpenses ? (
               <div className="py-10 text-center flex justify-center items-center">
                 <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
@@ -703,54 +738,99 @@ export default function AdminPanelPage() {
                 No expenses have been logged yet.
               </div>
             ) : (
-              <table className="w-full min-w-[650px] text-sm text-left">
-                <thead>
-                  <tr className="border-b border-neutral-200 dark:border-neutral-800 text-neutral-400 text-xs uppercase font-bold">
-                    <th className="pb-3 pt-1 pl-2">User (Planner)</th>
-                    <th className="pb-3 pt-1">Trip Workspace</th>
-                    <th className="pb-3 pt-1">Description</th>
-                    <th className="pb-3 pt-1">Category</th>
-                    <th className="pb-3 pt-1">Date</th>
-                    <th className="pb-3 pt-1">Amount</th>
-                    <th className="pb-3 pt-1 pr-2 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+              <>
+                {/* Desktop table view */}
+                <div className="overflow-x-auto hidden sm:block">
+                  <table className="w-full min-w-[650px] text-sm text-left">
+                    <thead>
+                      <tr className="border-b border-neutral-200 dark:border-neutral-800 text-neutral-400 text-xs uppercase font-bold">
+                        <th className="pb-3 pt-1 pl-2">User (Planner)</th>
+                        <th className="pb-3 pt-1">Trip Workspace</th>
+                        <th className="pb-3 pt-1">Description</th>
+                        <th className="pb-3 pt-1">Category</th>
+                        <th className="pb-3 pt-1">Date</th>
+                        <th className="pb-3 pt-1">Amount</th>
+                        <th className="pb-3 pt-1 pr-2 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                      {globalExpenses.map((exp) => {
+                        const plannerName = exp.trips?.profiles?.full_name || "Unknown";
+                        const plannerUsername = exp.trips?.profiles?.username || "unknown";
+                        const tripName = exp.trips?.name || "Deleted Trip";
+                        return (
+                          <tr key={exp.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 group">
+                            <td className="py-3 pl-2 font-medium text-neutral-800 dark:text-neutral-200">
+                              <div>
+                                {plannerName} <span className="text-xs font-normal text-neutral-400">(@{plannerUsername})</span>
+                              </div>
+                              {exp.created_by && (
+                                <div className="text-[10px] text-neutral-450 dark:text-neutral-400 font-medium mt-0.5">
+                                  Logged by: <span className="font-semibold text-neutral-600 dark:text-neutral-300">@{exp.created_by}</span>
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3 text-neutral-600 dark:text-neutral-400">{tripName}</td>
+                            <td className="py-3 text-neutral-800 dark:text-neutral-200 font-medium">{exp.description}</td>
+                            <td className="py-3 text-neutral-500 dark:text-neutral-400">{exp.category}</td>
+                            <td className="py-3 text-neutral-500 dark:text-neutral-400">{exp.date}</td>
+                            <td className="py-3 font-bold text-red-500">{formatCurrency(Number(exp.amount))}</td>
+                            <td className="py-3 pr-2 text-right">
+                              <button
+                                onClick={() => handleDeleteExpense(exp.id, exp.description)}
+                                className="p-1.5 text-neutral-400 hover:text-red-500 dark:hover:text-red-400 rounded cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                title="Delete Expense"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile list view */}
+                <div className="block sm:hidden space-y-3.5">
                   {globalExpenses.map((exp) => {
                     const plannerName = exp.trips?.profiles?.full_name || "Unknown";
                     const plannerUsername = exp.trips?.profiles?.username || "unknown";
                     const tripName = exp.trips?.name || "Deleted Trip";
                     return (
-                      <tr key={exp.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 group">
-                        <td className="py-3 pl-2 font-medium text-neutral-800 dark:text-neutral-200">
+                      <div
+                        key={exp.id}
+                        className="p-3.5 rounded-xl border border-neutral-150 dark:border-neutral-850 hover:bg-neutral-50/50 dark:hover:bg-neutral-900/10 transition-apple space-y-2 relative"
+                      >
+                        <div className="flex justify-between items-start gap-2">
                           <div>
-                            {plannerName} <span className="text-xs font-normal text-neutral-400">(@{plannerUsername})</span>
+                            <p className="font-semibold text-neutral-800 dark:text-neutral-200 text-sm">{exp.description}</p>
+                            <p className="text-xs text-neutral-450 dark:text-neutral-400">
+                              {plannerName} (@{plannerUsername}) • <span className="font-medium">{tripName}</span>
+                            </p>
+                            {exp.created_by && (
+                              <p className="text-[10px] text-neutral-400 mt-0.5">
+                                Logged by: <span className="font-semibold">@{exp.created_by}</span>
+                              </p>
+                            )}
                           </div>
-                          {exp.created_by && (
-                            <div className="text-[10px] text-neutral-450 dark:text-neutral-400 font-medium mt-0.5">
-                              Logged by: <span className="font-semibold text-neutral-600 dark:text-neutral-300">@{exp.created_by}</span>
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-3 text-neutral-600 dark:text-neutral-400">{tripName}</td>
-                        <td className="py-3 text-neutral-800 dark:text-neutral-200 font-medium">{exp.description}</td>
-                        <td className="py-3 text-neutral-500 dark:text-neutral-400">{exp.category}</td>
-                        <td className="py-3 text-neutral-500 dark:text-neutral-400">{exp.date}</td>
-                        <td className="py-3 font-bold text-red-500">{formatCurrency(Number(exp.amount))}</td>
-                        <td className="py-3 pr-2 text-right">
                           <button
                             onClick={() => handleDeleteExpense(exp.id, exp.description)}
-                            className="p-1.5 text-neutral-400 hover:text-red-500 dark:hover:text-red-400 rounded cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            className="p-1 text-neutral-400 hover:text-red-500 rounded cursor-pointer"
                             title="Delete Expense"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
-                        </td>
-                      </tr>
+                        </div>
+                        <div className="flex items-center justify-between text-xs pt-1 border-t border-neutral-100 dark:border-neutral-800/40">
+                          <span className="text-[10px] text-neutral-400">{exp.category} • {exp.date}</span>
+                          <span className="font-bold text-red-500">{formatCurrency(Number(exp.amount))}</span>
+                        </div>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
