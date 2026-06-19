@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, MapPin, Plus, Trash2, ArrowRight, Image as ImageIcon, Sparkles, Loader2, Compass } from "lucide-react";
+import { Calendar, MapPin, Plus, Trash2, ArrowRight, Image as ImageIcon, Sparkles, Loader2, Compass, Pencil } from "lucide-react";
 import Link from "next/link";
 import { WeatherWidget } from "@/components/weather-widget";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 interface ItineraryItem {
   id: string;
@@ -42,6 +43,15 @@ export default function ItineraryPage() {
   const [imageUrl, setImageUrl] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
+  // Edit Itinerary states
+  const [editingStop, setEditingStop] = React.useState<ItineraryItem | null>(null);
+  const [editStopDate, setEditStopDate] = React.useState("");
+  const [editLocation, setEditLocation] = React.useState("");
+  const [editDescription, setEditDescription] = React.useState("");
+  const [editImageUrl, setEditImageUrl] = React.useState("");
+  const [isSavingStop, setIsSavingStop] = React.useState(false);
+  const [editErrorMsg, setEditErrorMsg] = React.useState<string | null>(null);
 
   // Fetch itinerary items
   const { data: items = [], isLoading } = useQuery<ItineraryItem[]>({
@@ -101,6 +111,34 @@ export default function ItineraryPage() {
       queryClient.invalidateQueries({ queryKey: ["itinerary", activeTrip.id] });
     } catch (err: any) {
       alert(err.message || "Failed to delete itinerary stop");
+    }
+  };
+
+  const handleEditStopSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeTrip || !editingStop || !editLocation.trim()) return;
+    setIsSavingStop(true);
+    setEditErrorMsg(null);
+
+    try {
+      const { error } = await supabase
+        .from("itinerary")
+        .update({
+          date: editStopDate,
+          location: editLocation.trim(),
+          description: editDescription.trim() || null,
+          image_url: editImageUrl.trim() || null,
+        })
+        .eq("id", editingStop.id);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["itinerary", activeTrip.id] });
+      setEditingStop(null);
+    } catch (err: any) {
+      setEditErrorMsg(err.message || "Failed to update itinerary stop");
+    } finally {
+      setIsSavingStop(false);
     }
   };
 
@@ -311,11 +349,27 @@ export default function ItineraryPage() {
                             )}
                           </div>
 
-                          {/* Actions / Admin delete stop */}
+                          {/* Actions / Admin edit/delete stop */}
                           {isAdmin && (
-                            <div className="pt-2 flex justify-end">
+                            <div className="pt-2 flex justify-end items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setEditingStop(item);
+                                  setEditStopDate(item.date);
+                                  setEditLocation(item.location);
+                                  setEditDescription(item.description || "");
+                                  setEditImageUrl(item.image_url || "");
+                                  setEditErrorMsg(null);
+                                }}
+                                type="button"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-neutral-400 hover:text-[hsl(var(--accent))] hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-apple cursor-pointer font-semibold"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                Edit stop
+                              </button>
                               <button
                                 onClick={() => handleDeleteStop(item.id)}
+                                type="button"
                                 className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded transition-apple cursor-pointer font-semibold"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -350,6 +404,113 @@ export default function ItineraryPage() {
         </div>
 
       </div>
+
+      {/* Edit Itinerary Stop Modal */}
+      <Dialog open={editingStop !== null} onOpenChange={(open) => { if (!open) setEditingStop(null); }}>
+        <DialogContent className="sm:max-w-[425px] border border-neutral-200 dark:border-neutral-800 shadow-sm rounded-xl">
+          <form onSubmit={handleEditStopSubmit}>
+            <DialogHeader>
+              <DialogTitle>Edit Itinerary Stop</DialogTitle>
+              <DialogDescription>
+                Modify specific stops and attractions for this trip.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {editErrorMsg && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/40 text-red-600 dark:text-red-400 rounded-lg text-xs">
+                  {editErrorMsg}
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label htmlFor="editStopDate">Target Date</Label>
+                <Input
+                  id="editStopDate"
+                  type="date"
+                  value={editStopDate}
+                  onChange={(e) => setEditStopDate(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="editLocation">Location / Attraction</Label>
+                <Input
+                  id="editLocation"
+                  placeholder="e.g. Eiffel Tower, Shinjuku Gyoen"
+                  value={editLocation}
+                  onChange={(e) => setEditLocation(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="editDescription">Details / Notes</Label>
+                <textarea
+                  id="editDescription"
+                  rows={3}
+                  className="w-full text-sm bg-transparent rounded-lg border border-neutral-200 dark:border-neutral-850 px-3 py-2 text-neutral-800 dark:text-neutral-200 focus:outline-none focus:ring-1 focus:ring-[hsl(var(--accent))] placeholder:text-neutral-400"
+                  placeholder="e.g. Guided tour at 2 PM, wear comfortable walking shoes."
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="editImageUrl" className="flex items-center gap-1">
+                    <ImageIcon className="h-3.5 w-3.5 text-neutral-400" />
+                    Image URL
+                  </Label>
+                  <span className="text-[10px] text-neutral-400 italic">Optional</span>
+                </div>
+                <Input
+                  id="editImageUrl"
+                  placeholder="Paste image address (https://...)"
+                  value={editImageUrl}
+                  onChange={(e) => setEditImageUrl(e.target.value)}
+                />
+              </div>
+
+              {/* Preset Helper Panel */}
+              <div className="space-y-1.5 pt-1.5">
+                <Label className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 flex items-center gap-1">
+                  <Sparkles className="h-3 w-3 text-amber-500" />
+                  Quick Image Presets
+                </Label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {PRESET_IMAGES.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setEditImageUrl(preset.url)}
+                      className="text-[10px] py-1 px-1.5 text-left border border-neutral-100 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-900/35 rounded truncate transition-all text-neutral-700 dark:text-neutral-300 font-medium cursor-pointer"
+                      title={preset.label}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditingStop(null)} className="cursor-pointer text-xs">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSavingStop || !editLocation.trim()} className="cursor-pointer text-xs" variant="accent">
+                {isSavingStop ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

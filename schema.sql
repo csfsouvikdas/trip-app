@@ -75,6 +75,7 @@ create table if not exists public.menu_plan (
   meal_name text not null,
   day date not null,
   time text not null, -- e.g., 'Breakfast', 'Lunch', 'Dinner'
+  youtube_url text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
