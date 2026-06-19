@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Check, MapPin, Wallet, Calendar, Trash2, Loader2, Compass } from "lucide-react";
+import { Plus, Check, MapPin, Wallet, Calendar, Trash2, Loader2, Compass, Pencil, X } from "lucide-react";
 import { WeatherWidget } from "@/components/weather-widget";
 
 export default function TripsPage() {
@@ -23,6 +23,38 @@ export default function TripsPage() {
   const [totalBudget, setTotalBudget] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
+  // Budget Editing States
+  const [isEditingBudget, setIsEditingBudget] = React.useState(false);
+  const [editBudgetValue, setEditBudgetValue] = React.useState("");
+  const [isUpdatingBudget, setIsUpdatingBudget] = React.useState(false);
+
+  const handleUpdateBudget = async () => {
+    if (!activeTrip) return;
+    const budgetNum = Number(editBudgetValue);
+    if (isNaN(budgetNum) || budgetNum < 0) {
+      alert("Please enter a valid positive budget number");
+      return;
+    }
+
+    setIsUpdatingBudget(true);
+    try {
+      const { error } = await supabase
+        .from("trips")
+        .update({ total_budget: budgetNum })
+        .eq("id", activeTrip.id);
+
+      if (error) throw error;
+
+      // Invalidate React Query cache to trigger refetch
+      queryClient.invalidateQueries({ queryKey: ["trips", user?.id] });
+      setIsEditingBudget(false);
+    } catch (err: any) {
+      alert(err.message || "Failed to update budget");
+    } finally {
+      setIsUpdatingBudget(false);
+    }
+  };
 
   // Formatting helper
   const formatCurrency = (val: number) => {
@@ -126,9 +158,59 @@ export default function TripsPage() {
             <div className="flex items-center gap-2 text-sm border-t border-neutral-100 dark:border-neutral-800/60 pt-3">
               <Wallet className="h-4.5 w-4.5 text-neutral-400" />
               <span className="font-semibold text-neutral-500 dark:text-neutral-400">Trip Budget:</span>
-              <span className="font-bold text-neutral-800 dark:text-neutral-200">
-                {formatCurrency(activeTrip.total_budget)}
-              </span>
+              {isEditingBudget ? (
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    value={editBudgetValue}
+                    onChange={(e) => setEditBudgetValue(e.target.value)}
+                    className="w-28 h-7 text-xs px-2"
+                    placeholder="Enter budget"
+                    disabled={isUpdatingBudget}
+                    autoFocus
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-emerald-600 hover:text-emerald-700 cursor-pointer shrink-0"
+                    onClick={handleUpdateBudget}
+                    disabled={isUpdatingBudget}
+                  >
+                    {isUpdatingBudget ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Check className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-red-500 hover:text-red-700 cursor-pointer shrink-0"
+                    onClick={() => setIsEditingBudget(false)}
+                    disabled={isUpdatingBudget}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-neutral-800 dark:text-neutral-200">
+                    {formatCurrency(activeTrip.total_budget)}
+                  </span>
+                  {(profile?.is_admin || user?.id === activeTrip.user_id) && (
+                    <button
+                      onClick={() => {
+                        setEditBudgetValue(activeTrip.total_budget.toString());
+                        setIsEditingBudget(true);
+                      }}
+                      className="p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-apple cursor-pointer"
+                      title="Edit trip budget"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <div className="md:col-span-1">
